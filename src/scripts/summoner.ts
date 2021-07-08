@@ -1,34 +1,9 @@
+import { log } from "../main.js";
+import { DismissRequestMessage, Message, SummonOptions, SummonRequestMessage } from "./models.js";
+import { MODULE_NAME, SOCKET_NAME, SUMMON_COMPLETE_FLAG } from "./settings.js";
 import * as Util from "./util.js";
 
-const MODULE_NAME = "summoner";
-const SOCKET_NAME = "module.summoner";
-const SUMMON_COMPLETE_FLAG = "summoningComplete";
-const log = Util.log;
 
-Hooks.on("ready", onReady);
-
-export function onReady(): void {
-  game.settings.register(MODULE_NAME, "debug", {
-    name: "Debug",
-    hint: "",
-    scope: "client",
-    default: false,
-    type: Boolean,
-    config: true,
-  });
-
-  log("Initializing...");
-  game.socket.on(SOCKET_NAME, receiveMessage);
-
-  (window as any).Summoner = {
-    placeAndSummon,
-    placeAndSummonFromSpell,
-    placeAndSummonPolymorphed,
-    dismiss,
-  };
-
-  log("Initialized");
-}
 
 /**
  * Summons have the following fields:
@@ -114,7 +89,7 @@ export async function placeAndSummonPolymorphed(
     `Could not find folder of polymorphs. Only entities in the "${minionName}" folder can be used as polymorphs.`
   );
   const html = await renderTemplate(
-    "/modules/summoner/templates/choose_polymorph.html",
+    `/modules/${MODULE_NAME}/templates/choose_polymorph.html`,
     {
       minionName,
       polymorphOptions: polymorphFolder.entities.map((a) => a.name),
@@ -130,7 +105,8 @@ export async function placeAndSummonPolymorphed(
           label: "Summon",
           callback: (html) =>
             resolve(
-              new FormDataExtended(html[0].querySelector("form")).toObject()
+              //@ts-ignore
+              new FormDataExtended(html[0].querySelector("form"),).toObject()
             ),
         },
       },
@@ -263,29 +239,7 @@ function chooseSquare(): Promise<{ x: number; y: number }> {
   }
 }
 
-interface SummonOptions {
-  setSpellBonuses?: boolean;
-  polymorph?: { name?: string };
-}
 
-interface SummonRequestMessage {
-  action: "summon";
-  summonerUserId: string;
-  summonerActorId: string;
-  name: string;
-  x: number;
-  y: number;
-  overrides: Partial<Token.Data>;
-  options: SummonOptions;
-}
-
-interface DismissRequestMessage {
-  action: "dismiss";
-  name: string;
-  userId: string;
-}
-
-type Message = SummonRequestMessage | DismissRequestMessage;
 
 function sendSummonRequest(
   actor: Actor,
@@ -350,7 +304,7 @@ function dispatchMessage(message: Message) {
   }
 }
 
-function receiveMessage(message: Message) {
+export const receiveMessage = function(message: Message) {
   if (game.user.id !== game.users.filter((u) => u.isGM)[0]?.id) {
     // Skip anyone who isn't the first GM.
     return;
@@ -377,7 +331,17 @@ export async function createSummonedToken({
   x,
   y,
   overrides = {},
-  options = { setSpellBonuses: false, polymorph: {} },
+  options = {
+    setSpellBonuses: false,
+    polymorph: {},
+    shownumberdialog: true,
+    defaultnumber: 1,
+    onlyonecreature: false,
+    creatures: [],
+    usespelltemplate: false,
+    filterforfolder: false,
+    folderId: <string>game.settings.get(MODULE_NAME, "folder") ,
+  },
 }: SummonRequestMessage): Promise<Token> {
   const user: User = Util.require(
     game.users.get(summonerUserId),
@@ -389,13 +353,13 @@ export async function createSummonedToken({
     `Actor ${summonerActorId} does not exist from request to summon ${name}.`
   );
 
-  const summonFolder: Folder<Actor> = Util.require(
-    game.folders.getName("Summons") as Folder<Actor>,
-    `Could not find summons folder. Only entities in the "Summons" folder can be summoned.`
+  const summonFolder: Folder = Util.require(
+    game.folders.getName(<string>game.settings.get(MODULE_NAME, "folder")) as Folder,
+    `Could not find summons folder. Only entities in the "${<string>game.settings.get(MODULE_NAME, "folder")}" folder can be summoned.`
   );
-  const summonActor: Actor = Util.require(
+  const summonActor: Actor = <Actor>Util.require(
     summonFolder.entities.find((a) => a.name === name),
-    `Recieved request to summon ${name} that cannot be found in the "Summons" folder.`
+    `Received request to summon ${name} that cannot be found in the "${<string>game.settings.get(MODULE_NAME, "folder")}" folder.`
   );
 
   if (!canSummon(user, summonActor)) {
@@ -420,7 +384,7 @@ export async function createSummonedToken({
     y,
   });
 
-  return Token.create(token.data).then(async (token) => {
+  return Token.create(token.data).then(async (token:Token) => {
     if (options.polymorph && options.polymorph.name) {
       await polymorphToken(token, options.polymorph);
     }
@@ -438,11 +402,11 @@ function polymorphToken(
 ): Promise<Token> {
   const polymorphFolder = Util.require(
     game.folders.getName(token.actor.name),
-    `Could not find folder of polymorphs. Only entities in the "${token.actor.name}" folder can be used as polymorphs.`
+    `Could not find folder of polymorph. Only entities in the "${token.actor.name}" folder can be used as polymorph.`
   );
   const polymorphActor = Util.require(
     polymorphFolder.entities.find((a) => a.name === polymorph.name) as Actor,
-    `Recieved request to polymorph "${token.name}" to "${polymorph.name}" that cannot be found in the "${token.actor.name}" folder.`
+    `Received request to polymorph "${token.name}" to "${polymorph.name}" that cannot be found in the "${token.actor.name}" folder.`
   );
 
   if ((token.actor as any).transformInto) {
@@ -476,7 +440,8 @@ export function dismissSummonedTokens({
   userId,
 }: DismissRequestMessage): Promise<Token[]> {
   const user = game.users.get(userId);
-  const summonFolder = game.folders.getName("Summons");
+  const summonFolderName = <string>game.settings.get(MODULE_NAME, "folder");
+  const summonFolder = game.folders.getName(summonFolderName);
   const summonActor = summonFolder?.collection.getName(name) as Actor;
 
   if (!canSummon(user, summonActor)) {
