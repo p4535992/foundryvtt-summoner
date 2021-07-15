@@ -11,8 +11,8 @@ import * as Util from "./util.js";
 export function placeAndSummon(
   actor: Actor,
   minionName: string,
-  overrides: Partial<Token.Data> = {},
-  options: SummonOptions = {}
+  overrides: Partial<Token.Data>,
+  options: SummonOptions
 ): Promise<Token> {
   return chooseSquare().then(({ x, y }) =>
     sendSummonRequest(actor, minionName, x, y, overrides, options)
@@ -335,7 +335,7 @@ export async function createSummonedToken({
     setSpellBonuses: false,
     polymorph: {},
     shownumberdialog: true,
-    defaultnumber: 1,
+    defaultnumber: "1",
     onlyonecreature: false,
     creatures: [],
     usespelltemplate: false,

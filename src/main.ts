@@ -12,11 +12,11 @@
 // Import JavaScript modules
 
 // Import TypeScript modules
-import { registerSettings } from './module/settings';
-import { preloadTemplates } from './module/preloadTemplates';
-import { MODULE_NAME } from './module/settings';
-import { initHooks, readyHooks, setupHooks } from './module/Hooks';
-// import { installedModules, setupModules } from './module/setupModules';
+import { registerSettings } from './scripts/settings';
+import { preloadTemplates } from './scripts/preloadTemplates';
+import { MODULE_NAME } from './scripts/settings';
+import { initHooks, readyHooks, setupHooks } from './scripts/Hooks';
+// import { installedModules, setupModules } from './scripts/setupModules';
 
 export let debugEnabled = 0;
 // 0 = none, warnings = 1, debug = 2, all = 3
