@@ -1,7 +1,7 @@
 import { TokenData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs';
 import { log } from "../main.js";
 import { DismissRequestMessage, Message, SummonOptions, SummonRequestMessage } from "./models.js";
-import { getGame, SUMMONER_MODULE_NAME, SUMMONER_SOCKET_NAME, SUMMONER_SUMMON_COMPLETE_FLAG } from "./settings.js";
+import { getCanvas, getGame, SUMMONER_MODULE_NAME, SUMMONER_SOCKET_NAME, SUMMONER_SUMMON_COMPLETE_FLAG } from "./settings.js";
 import * as Util from "./util.js";
 
 
@@ -12,7 +12,7 @@ import * as Util from "./util.js";
 export function placeAndSummon(
   actor: Actor,
   minionName: string,
-  overrides: Partial<Token.Data>,
+  overrides: Partial<TokenData>,
   options: SummonOptions
 ): Promise<Token> {
   return chooseSquare().then(({ x, y }) =>
@@ -24,7 +24,7 @@ export function placeAndSummonFromSpell(
   actor: any,
   spell: any,
   minionName: string,
-  overrides: Partial<Token.Data> = {}
+  overrides: Partial<TokenData> = {}
 ): Promise<Token> {
   return (game as any).dnd5e.applications.AbilityUseDialog.create(spell).then(
     (configuration) =>
@@ -84,16 +84,16 @@ export async function placeAndSummonPolymorphed(
   actor: Actor,
   minionName: string,
   polymorphOptions: any = {}
-): Promise<Token> {
+): Promise<Token|undefined> {
   const polymorphFolder = Util.require(
-    getGame().folders.getName(minionName),
+    getGame().folders?.getName(minionName),
     `Could not find folder of polymorphs. Only entities in the "${minionName}" folder can be used as polymorphs.`
   );
   const html = await renderTemplate(
     `/modules/${SUMMONER_MODULE_NAME}/templates/choose_polymorph.html`,
     {
       minionName,
-      polymorphOptions: polymorphFolder.entities.map((a) => a.name),
+      polymorphOptions: polymorphFolder.contents.map((a) => a.name),
     }
   );
   const { polymorphName } = await new Promise((resolve) => {
@@ -129,8 +129,8 @@ export async function placeAndSummonPolymorphed(
   );
 }
 
-export function dismiss(minionName: string): Promise<void> {
-  if (getGame().actors.getName(minionName)?.getActiveTokens().length > 0) {
+export function dismiss(minionName: string): Promise<void|undefined> {
+  if (getGame().actors?.getName(minionName)?.getActiveTokens().length > 0) {
     return sendDismissRequest(minionName);
   } else {
     return Promise.resolve();
@@ -147,20 +147,22 @@ export function dismiss(minionName: string): Promise<void> {
 export function updateSpellDcsFromActor(
   actor: Actor,
   token: Token
-): Promise<Token> {
+): Promise<Token|undefined>|undefined {
   // This is a DnD5e operation, so uses the 5E actor.
   const dc = (actor.data.data as any).attributes.spelldc;
   // The updates have to be reduced to make sure they are sequenced otherwise
   // they will cancel each other.
   // TODO: Can this be done in a bulk update?
-  return token.actor.items
-    .reduce(
-      (promise, item) =>
+  return token?.document?.data?.actorData?.items?.reduce(
+      //@ts-ignore
+      (promise, item:Item) =>
         promise.then(() =>
-          item.update({
-            "data.save.dc": dc,
-            "data.save.scaling": "flat",
-          } as any)
+          item.update(
+            {
+              "data.save.dc": dc,
+              "data.save.scaling": "flat",
+            }
+          )
         ),
       Promise.resolve({})
     )
@@ -197,22 +199,22 @@ const PLACE_TOKEN_HIGHLIGHT_LAYER = "PlaceToken";
 const PLACE_TOKEN_HIGHLIGHT_COLOR = 0x3366cc;
 const PLACE_TOKEN_HIGHLIGHT_BORDER = 0x000000;
 
-function chooseSquare(): Promise<{ x: number; y: number }> {
-  if (canvas.ready) {
-    const readyCanvas: any = canvas;
+function chooseSquare(): Promise<{ x: number; y: number }|undefined> {
+  if (getCanvas().ready) {
+    //const readyCanvas: any = canvas;
 
     return new Promise((resolve) => {
-      const highlightLayer = readyCanvas.grid.addHighlightLayer(
+      const highlightLayer = <GridHighlight>getCanvas().grid?.addHighlightLayer(
         PLACE_TOKEN_HIGHLIGHT_LAYER
       );
 
       const leftClickListener = function (event) {
         const scenePos = event.data.getLocalPosition(highlightLayer);
-        const [x, y] = readyCanvas.grid.getTopLeft(scenePos.x, scenePos.y);
+        const [x, y] = <PointArray>getCanvas().grid?.getTopLeft(scenePos.x, scenePos.y);
 
         highlightLayer.clear();
-        readyCanvas.stage.off("mousedown", leftClickListener);
-        readyCanvas.stage.off("mousemove", moveListener);
+        getCanvas().stage.off("mousedown", leftClickListener);
+        getCanvas().stage.off("mousemove", moveListener);
 
         resolve({ x, y });
       };
@@ -223,9 +225,9 @@ function chooseSquare(): Promise<{ x: number; y: number }> {
         const now = Date.now();
         if (now - lastMoveTime <= 30) return;
         const scenePos = event.data.getLocalPosition(highlightLayer);
-        const [x, y] = readyCanvas.grid.getTopLeft(scenePos.x, scenePos.y);
+        const [x, y] = <PointArray>getCanvas().grid?.getTopLeft(scenePos.x, scenePos.y);
         highlightLayer.clear();
-        readyCanvas.grid.grid.highlightGridPosition(highlightLayer, {
+        getCanvas().grid?.grid?.highlightGridPosition(highlightLayer, {
           x,
           y,
           color: PLACE_TOKEN_HIGHLIGHT_COLOR,
@@ -234,9 +236,11 @@ function chooseSquare(): Promise<{ x: number; y: number }> {
         lastMoveTime = now;
       };
 
-      readyCanvas.stage.on("mousedown", leftClickListener);
-      readyCanvas.stage.on("mousemove", moveListener);
+      getCanvas().stage.on("mousedown", leftClickListener);
+      getCanvas().stage.on("mousemove", moveListener);
     });
+  }else{
+    return Promise.apply(undefined);
   }
 }
 

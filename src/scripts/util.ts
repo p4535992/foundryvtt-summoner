@@ -1,11 +1,12 @@
+import { ActorData, PrototypeTokenData, TokenData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs';
 import { SummonOptions } from './models';
 // const formatLogMessage = (msg: string) => `Summoner | ${msg}`;
 
 import { log } from "../main";
-import { getCanvas } from './settings';
+import { getGame, getCanvas } from './settings';
 
 // export const log = (msg: string, ...args: any[]) => {
-//   if (game.settings.get("summoner", "debug")) {
+//   if (getGame().settings.get("summoner", "debug")) {
 //     console.log(formatLogMessage(msg), ...args);
 //   }
 // };
@@ -13,44 +14,47 @@ import { getCanvas } from './settings';
 export function require<T>(entity: null | undefined | T, msg: string): T {
   if (entity === null || entity === undefined) {
     log(msg);
-    ui.notifications.error(msg);
+    ui.notifications?.error(msg);
     throw new Error(msg);
   }
   return entity;
 }
 
-export const summonActorFromItemMacro = async function (mysummoneritem, summonOptions:SummonOptions) {
+export const summonActorFromItemMacro = async function (mysummoneritem:any, summonOptions:SummonOptions) {
 
     let filterforfolder = summonOptions.filterforfolder;
     let folderId = summonOptions.folderId;
-    let chosencreature = summonOptions.chosencreature;
+    let chosencreature = <string>summonOptions.chosencreature;
     let numbercreature:number = summonOptions.defaultnumber ? parseInt(summonOptions.defaultnumber) : 1;
     let usespelltemplate = summonOptions.usespelltemplate;
 
     function spawnActor(scene, template) {
 
-      let protoToken:Token.Data = filterforfolder ? <Token.Data>duplicate(game.actors.find( actor => actor.data.folder == folderId && actor.data.name == chosencreature).data.token) : <Token.Data>duplicate(game.actors.getName(chosencreature).data.token);
+      let protoToken:any = <any>(
+        filterforfolder ?
+        <PrototypeTokenData|undefined>duplicate(getGame().actors?.find((actor:Actor) => actor.data.folder == folderId && actor.data.name == chosencreature)?.data.token) :
+        <PrototypeTokenData|undefined>duplicate(getGame().actors?.getName(chosencreature)?.data.token)
+      );
       protoToken.x = template.x;
       protoToken.y = template.y;
       protoToken.flags.summoner = mysummoneritem.tokenId;
       // Increase this offset for larger summons
       protoToken.x -= (scene.data.grid/2+(protoToken.width-1)*scene.data.grid);
       protoToken.y -= (scene.data.grid/2+(protoToken.height-1)*scene.data.grid);
-      //@ts-ignore
-      return getCanvas().scene.createEmbeddedDocuments("Token",[protoToken]);
+      return getCanvas().scene?.createEmbeddedDocuments("Token",[protoToken]);
   }
 
   async function deleteTemplatesAndSpawn (scene, template) {
     for (let i=0;i<numbercreature;i++){
       await spawnActor(scene,template);
     }
-    await getCanvas().templates.deleteMany([template._id]);
+    await getCanvas().templates?.deleteMany([template._id],{});
   }
 
 
   if (usespelltemplate == false){
     for (let i=0;i<numbercreature;i++){
-        await spawnActor(getCanvas().scene,getCanvas().templates.placeables.map(x=>x).reverse().find(t => t.data.user == game.user.id)?.data || getCanvas().tokens.get(mysummoneritem.tokenId));
+        await spawnActor(getCanvas().scene,getCanvas().templates?.placeables.map(x=>x).reverse().find(t => t.data.user == getGame().user?.id)?.data || getCanvas().tokens?.get(mysummoneritem.tokenId));
     }
   }
   //create flag to delete summon
@@ -67,8 +71,8 @@ export const summonActorFromItemMacro = async function (mysummoneritem, summonOp
     label: mysummoneritem.item.name,
     flags: {dae: {itemData: mysummoneritem.item}}
   }
-
-  let actor:Actor = game.data.actors.find(t => t.data._id == mysummoneritem.actor._id);
+  //@ts-ignore
+  let actor:Actor = getGame().data?.actors?.find((t:Actor) => t.data.id == mysummoneritem.actor._id);
   await actor.createEmbeddedEntity("ActiveEffect", effectData);
 }
 
