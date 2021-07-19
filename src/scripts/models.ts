@@ -1,3 +1,5 @@
+import { TokenData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs";
+
 export interface SummonOptions {
   setSpellBonuses?: boolean;
   polymorph?: { name?: string };
@@ -19,7 +21,7 @@ export interface SummonRequestMessage {
   name: string;
   x: number;
   y: number;
-  overrides: Partial<Token.Data>;
+  overrides: Partial<TokenData>;
   options: SummonOptions;
 
 }

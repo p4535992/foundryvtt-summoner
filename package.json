@@ -11,10 +11,10 @@
     "build": "gulp build && gulp link",
     "build:watch": "gulp watch",
     "clean": "gulp clean && gulp link --clean",
-    "update": "npm install --save-dev @league-of-foundry-developers/foundry-vtt-types@fvtt-0.7.10"
+    "update": "npm install --save-dev @league-of-foundry-developers/foundry-vtt-types@fvtt-0.8.8"
   },
   "devDependencies": {
-    "@league-of-foundry-developers/foundry-vtt-types": "^0.7.10-0",
+    "@league-of-foundry-developers/foundry-vtt-types": "^0.8.8-7",
     "archiver": "^5.2.0",
     "chalk": "^4.1.0",
     "fs-extra": "^9.0.1",
@@ -29,7 +29,7 @@
     "yargs": "^15.4.1"
   },
   "dependencies": {
-    "eslint": "^7.14.0",
+    "eslint": "^7.31.0",
     "eslint-config-airbnb": "^18.2.1",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-jsx-a11y": "^6.4.1",

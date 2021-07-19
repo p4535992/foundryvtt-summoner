@@ -1,6 +1,7 @@
+import { TokenData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs';
 import { log } from "../main.js";
 import { DismissRequestMessage, Message, SummonOptions, SummonRequestMessage } from "./models.js";
-import { MODULE_NAME, SOCKET_NAME, SUMMON_COMPLETE_FLAG } from "./settings.js";
+import { getGame, SUMMONER_MODULE_NAME, SUMMONER_SOCKET_NAME, SUMMONER_SUMMON_COMPLETE_FLAG } from "./settings.js";
 import * as Util from "./util.js";
 
 
@@ -85,11 +86,11 @@ export async function placeAndSummonPolymorphed(
   polymorphOptions: any = {}
 ): Promise<Token> {
   const polymorphFolder = Util.require(
-    game.folders.getName(minionName),
+    getGame().folders.getName(minionName),
     `Could not find folder of polymorphs. Only entities in the "${minionName}" folder can be used as polymorphs.`
   );
   const html = await renderTemplate(
-    `/modules/${MODULE_NAME}/templates/choose_polymorph.html`,
+    `/modules/${SUMMONER_MODULE_NAME}/templates/choose_polymorph.html`,
     {
       minionName,
       polymorphOptions: polymorphFolder.entities.map((a) => a.name),
@@ -129,7 +130,7 @@ export async function placeAndSummonPolymorphed(
 }
 
 export function dismiss(minionName: string): Promise<void> {
-  if (game.actors.getName(minionName)?.getActiveTokens().length > 0) {
+  if (getGame().actors.getName(minionName)?.getActiveTokens().length > 0) {
     return sendDismissRequest(minionName);
   } else {
     return Promise.resolve();
@@ -246,15 +247,15 @@ function sendSummonRequest(
   name: string,
   x: number,
   y: number,
-  overrides: Partial<Token.Data>,
+  overrides: Partial<TokenData>,
   options: SummonOptions
 ): Promise<Token> {
   log("Sending summon request");
-  const user = game.user;
-  const message = {
+  const user = getGame().user;
+  const message:Message = {
     action: "summon" as const,
-    summonerUserId: user.id,
-    summonerActorId: actor.id,
+    summonerUserId: <string>user?.id,
+    summonerActorId: <string>actor.id,
     name,
     x,
     y,
@@ -267,8 +268,8 @@ function sendSummonRequest(
       (scene: Scene, data, changes, isDiff) => {
         const token = new Token(data);
         if (
-          changes.flags?.[MODULE_NAME]?.[SUMMON_COMPLETE_FLAG] &&
-          game.actors.getName(name).id == token.data.actorId
+          changes.flags?.[SUMMONER_MODULE_NAME]?.[SUMMONER_SUMMON_COMPLETE_FLAG] &&
+          getGame().actors?.getName(name)?.id == token.data.actorId
         ) {
           log(`Summoning complete for ${name}.`);
           resolve(token);
@@ -281,12 +282,16 @@ function sendSummonRequest(
 }
 
 function sendDismissRequest(name: string): Promise<void> {
-  const user = game.user;
-  const message = { action: "dismiss" as const, userId: user.id, name };
+  const user = getGame().user;
+  const message:Message = {
+    action: "dismiss" as const,
+    userId: <string>user?.id,
+    name
+  };
 
   return new Promise((resolve) => {
     const hookId = Hooks.on("deleteToken", (scene, data, changes, isDiff) => {
-      if (game.actors.getName(name).id == data.actorId) {
+      if (getGame().actors?.getName(name)?.id == data.actorId) {
         log(`Dismiss complete for ${name}.`);
         resolve(data);
         Hooks.off("deleteToken", hookId);
@@ -297,15 +302,15 @@ function sendDismissRequest(name: string): Promise<void> {
 }
 
 function dispatchMessage(message: Message) {
-  if (game.user.isGM) {
+  if (getGame().user?.isGM) {
     receiveMessage(message);
   } else {
-    game.socket.emit(SOCKET_NAME, message);
+    getGame().socket?.emit(SUMMONER_SOCKET_NAME, message);
   }
 }
 
 export const receiveMessage = function(message: Message) {
-  if (game.user.id !== game.users.filter((u) => u.isGM)[0]?.id) {
+  if (getGame().user?.id !== getGame().users?.filter((u) => u.isGM)[0]?.id) {
     // Skip anyone who isn't the first GM.
     return;
   }
@@ -340,26 +345,26 @@ export async function createSummonedToken({
     creatures: [],
     usespelltemplate: false,
     filterforfolder: false,
-    folderId: <string>game.settings.get(MODULE_NAME, "folder") ,
+    folderId: <string>getGame().settings.get(SUMMONER_MODULE_NAME, "folder") ,
   },
-}: SummonRequestMessage): Promise<Token> {
+}: SummonRequestMessage): Promise<TokenDocument> {
   const user: User = Util.require(
-    game.users.get(summonerUserId),
+    getGame().users?.get(summonerUserId),
     `User ${summonerUserId} does not exist from request to summon ${name}.`
   );
 
   const summonerActor: Actor = Util.require(
-    game.actors.get(summonerActorId),
+    getGame().actors?.get(summonerActorId),
     `Actor ${summonerActorId} does not exist from request to summon ${name}.`
   );
 
   const summonFolder: Folder = Util.require(
-    game.folders.getName(<string>game.settings.get(MODULE_NAME, "folder")) as Folder,
-    `Could not find summons folder. Only entities in the "${<string>game.settings.get(MODULE_NAME, "folder")}" folder can be summoned.`
+    getGame().folders?.getName(<string>getGame().settings.get(SUMMONER_MODULE_NAME, "folder")) as Folder,
+    `Could not find summons folder. Only entities in the "${<string>getGame().settings.get(SUMMONER_MODULE_NAME, "folder")}" folder can be summoned.`
   );
   const summonActor: Actor = <Actor>Util.require(
-    summonFolder.entities.find((a) => a.name === name),
-    `Received request to summon ${name} that cannot be found in the "${<string>game.settings.get(MODULE_NAME, "folder")}" folder.`
+    summonFolder.contents.find((a) => a.name === name),
+    `Received request to summon ${name} that cannot be found in the "${<string>getGame().settings.get(SUMMONER_MODULE_NAME, "folder")}" folder.`
   );
 
   if (!canSummon(user, summonActor)) {
@@ -384,50 +389,52 @@ export async function createSummonedToken({
     y,
   });
 
-  return Token.create(token.data).then(async (token:Token) => {
+  return TokenDocument.create(token.data).then(async (token:Token) => {
     if (options.polymorph && options.polymorph.name) {
       await polymorphToken(token, options.polymorph);
     }
     if (options.setSpellBonuses) {
       await updateSpellDcsFromActor(summonerActor, token);
     }
-    await token.setFlag(MODULE_NAME, SUMMON_COMPLETE_FLAG, true);
+    await token.setFlag(SUMMONER_MODULE_NAME, SUMMONER_SUMMON_COMPLETE_FLAG, true);
     return token;
   });
 }
 
 function polymorphToken(
-  token: Token,
+  token: TokenDocument,
   polymorph: { name?: string } // and any other 5E polymorph options.
-): Promise<Token> {
+): Promise<TokenDocument|undefined> {
+  const actorName = <string>token.data.actorData.name;
   const polymorphFolder = Util.require(
-    game.folders.getName(token.actor.name),
-    `Could not find folder of polymorph. Only entities in the "${token.actor.name}" folder can be used as polymorph.`
+    getGame().folders?.getName(actorName),
+    `Could not find folder of polymorph. Only entities in the "${actorName}" folder can be used as polymorph.`
   );
-  const polymorphActor = Util.require(
-    polymorphFolder.entities.find((a) => a.name === polymorph.name) as Actor,
-    `Received request to polymorph "${token.name}" to "${polymorph.name}" that cannot be found in the "${token.actor.name}" folder.`
+  const polymorphActor = <Actor>Util.require(
+    polymorphFolder.contents.find((a) => a.name === polymorph.name),
+    `Received request to polymorph "${token.name}" to "${polymorph.name}" that cannot be found in the "${actorName}" folder.`
   );
 
   if ((token.actor as any).transformInto) {
     return (token.actor as any).transformInto(polymorphActor, polymorph);
   } else {
-    const from = token.actor.data;
+    const from = token.data;
     const to = polymorphActor.data;
     const name = `${to.name} (${from.name})`;
-    const newData = {
+    const newData:TokenDocument = {
       ...to.token,
-      actorLink: from.token.actorLink,
-      actorId: from.token.actorId,
+      //@ts-ignore
+      actorLink: from.actorLink,
+      actorId: from.actorId,
       name,
       actorData: {
-        type: from.type,
+        type: from.actorData.type,
         name,
         data: to.data,
-        items: to.items.concat(from.items),
+        items: to.items.contents.concat((<Actor>getGame().actors?.find((actor:Actor) => actor.name ===  from.name))?.items.contents),
         img: to.img,
-        permission: from.permission,
-        folder: from.folder,
+        permission: from.actorData.permission,
+        folder: from.actorData.folder,
         flags: from.flags,
       },
     };
@@ -438,20 +445,20 @@ function polymorphToken(
 export function dismissSummonedTokens({
   name,
   userId,
-}: DismissRequestMessage): Promise<Token[]> {
-  const user = game.users.get(userId);
-  const summonFolderName = <string>game.settings.get(MODULE_NAME, "folder");
-  const summonFolder = game.folders.getName(summonFolderName);
-  const summonActor = summonFolder?.collection.getName(name) as Actor;
+}: DismissRequestMessage): Promise<(TokenDocument|undefined)[]> {
+  const user = <User>getGame().users?.get(userId);
+  const summonFolderName = <string>getGame().settings?.get(SUMMONER_MODULE_NAME, "folder");
+  const summonFolder = <Folder>getGame().folders?.getName(summonFolderName);
+  const summonActor = <Actor>summonFolder?.contents.find((content:Actor) => content.data.name === name);
 
   if (!canSummon(user, summonActor)) {
     console.error(
       `User ${userId} needs ownership on ${name} to perform summoning actions`
     );
-    return;
+    return Promise.apply(undefined);
   }
 
   return Promise.all(
-    summonActor.getActiveTokens().map((token) => token.delete())
+    summonActor.getActiveTokens().map((token:TokenDocument) => token.delete())
   );
 }
