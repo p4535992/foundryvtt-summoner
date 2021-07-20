@@ -1,4 +1,5 @@
 import { TokenData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs';
+import { ItemDataBaseProperties } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/itemData';
 import { log } from "../main.js";
 import { DismissRequestMessage, Message, SummonOptions, SummonRequestMessage } from "./models.js";
 import { getCanvas, getGame, SUMMONER_MODULE_NAME, SUMMONER_SOCKET_NAME, SUMMONER_SUMMON_COMPLETE_FLAG } from "./settings.js";
@@ -14,7 +15,8 @@ export function placeAndSummon(
   minionName: string,
   overrides: Partial<TokenData>,
   options: SummonOptions
-): Promise<Token> {
+): Promise<TokenDocument> {
+  //@ts-ignore
   return chooseSquare().then(({ x, y }) =>
     sendSummonRequest(actor, minionName, x, y, overrides, options)
   );
@@ -25,9 +27,10 @@ export function placeAndSummonFromSpell(
   spell: any,
   minionName: string,
   overrides: Partial<TokenData> = {}
-): Promise<Token> {
+): Promise<TokenDocument> {
   return (game as any).dnd5e.applications.AbilityUseDialog.create(spell).then(
     (configuration) =>
+      //@ts-ignore
       chooseSquare().then(async ({ x, y }) => {
         // Following logic ripped from DnD5e system.  Item5e.roll.
         const spellLevel =
@@ -84,7 +87,7 @@ export async function placeAndSummonPolymorphed(
   actor: Actor,
   minionName: string,
   polymorphOptions: any = {}
-): Promise<Token|undefined> {
+): Promise<TokenDocument|undefined> {
   const polymorphFolder = Util.require(
     getGame().folders?.getName(minionName),
     `Could not find folder of polymorphs. Only entities in the "${minionName}" folder can be used as polymorphs.`
@@ -107,9 +110,9 @@ export async function placeAndSummonPolymorphed(
           callback: (html) =>
             resolve(
               //@ts-ignore
-              new FormDataExtended(html[0].querySelector("form"),).toObject()
-            ),
-        },
+              new FormDataExtended(html[0].querySelector("form")).toObject()
+            )
+        }
       },
       default: "cast",
       close: () => resolve({ polymorphName: null }),
@@ -120,7 +123,7 @@ export async function placeAndSummonPolymorphed(
   if (!polymorphName) {
     return;
   }
-
+  //@ts-ignore
   return placeAndSummon(
     actor,
     minionName,
@@ -130,7 +133,8 @@ export async function placeAndSummonPolymorphed(
 }
 
 export function dismiss(minionName: string): Promise<void|undefined> {
-  if (getGame().actors?.getName(minionName)?.getActiveTokens().length > 0) {
+  let isDismiss:TokenDocument[] = <TokenDocument[]>getGame().actors?.getName(minionName)?.getActiveTokens();
+  if (isDismiss?.length > 0) {
     return sendDismissRequest(minionName);
   } else {
     return Promise.resolve();
@@ -146,17 +150,18 @@ export function dismiss(minionName: string): Promise<void|undefined> {
  */
 export function updateSpellDcsFromActor(
   actor: Actor,
-  token: Token
-): Promise<Token|undefined>|undefined {
+  token: TokenDocument
+): Promise<TokenDocument|undefined>|undefined {
   // This is a DnD5e operation, so uses the 5E actor.
   const dc = (actor.data.data as any).attributes.spelldc;
   // The updates have to be reduced to make sure they are sequenced otherwise
   // they will cancel each other.
   // TODO: Can this be done in a bulk update?
-  return token?.document?.data?.actorData?.items?.reduce(
+  return token?.data?.actorData?.items?.reduce(
       //@ts-ignore
-      (promise, item:Item) =>
+      (promise, item:ItemDataBaseProperties) =>
         promise.then(() =>
+          //@ts-ignore
           item.update(
             {
               "data.save.dc": dc,
@@ -166,6 +171,7 @@ export function updateSpellDcsFromActor(
         ),
       Promise.resolve({})
     )
+    //@ts-ignore
     .then(() => token);
 }
 
@@ -253,7 +259,7 @@ function sendSummonRequest(
   y: number,
   overrides: Partial<TokenData>,
   options: SummonOptions
-): Promise<Token> {
+): Promise<TokenDocument> {
   log("Sending summon request");
   const user = getGame().user;
   const message:Message = {
@@ -270,7 +276,7 @@ function sendSummonRequest(
     const hookId = Hooks.on(
       "updateToken",
       (scene: Scene, data, changes, isDiff) => {
-        const token = new Token(data);
+        const token = new TokenDocument(data);
         if (
           changes.flags?.[SUMMONER_MODULE_NAME]?.[SUMMONER_SUMMON_COMPLETE_FLAG] &&
           getGame().actors?.getName(name)?.id == token.data.actorId
@@ -381,8 +387,8 @@ export async function createSummonedToken({
     `Summoning ${name} on behalf of ${summonerActor.name}(${user.name}) at (${x}, ${y})`,
     overrides
   );
-
-  const token = await Token.fromActor(summonActor, {
+  //@ts-ignore
+  const token:Token = await Token.fromActor(summonActor, {
     ...mergeObject(
       // Start with the derived bonuses, then apply overrides.
       options.setSpellBonuses ? getSpellBonusesFromActor(summonerActor) : {},
@@ -393,7 +399,7 @@ export async function createSummonedToken({
     y,
   });
 
-  return TokenDocument.create(token.data).then(async (token:Token) => {
+  return TokenDocument.create(token.data).then(async (token:TokenDocument) => {
     if (options.polymorph && options.polymorph.name) {
       await polymorphToken(token, options.polymorph);
     }
