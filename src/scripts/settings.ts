@@ -4,6 +4,10 @@ export const SUMMONER_MODULE_NAME = "summoner";
 export const SUMMONER_SOCKET_NAME = "module.summoner";
 export const SUMMONER_SUMMON_COMPLETE_FLAG = "summoningComplete";
 
+export const SUMMONER_ITEM_MACRO_MODULE_NAME = "item-macro";
+export const SUMMONER_MIDI_MODULE_NAME = "midi";
+
+
 /**
  * Because typescript doesn't know when in the lifecycle of foundry your code runs, we have to assume that the
  * canvas is potentially not yet initialized, so it's typed as declare let canvas: Canvas | {ready: false}.

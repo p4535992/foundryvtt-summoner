@@ -20,13 +20,16 @@ export function require<T>(entity: null | undefined | T, msg: string): T {
   return entity;
 }
 
-export const summonActorFromItemMacro = async function (mysummoneritem:any, summonOptions:SummonOptions) {
-
-    let filterforfolder = summonOptions.filterforfolder;
-    let folderId = summonOptions.folderId;
-    let chosencreature = <string>summonOptions.chosencreature;
-    let numbercreature:number = summonOptions.defaultnumber ? parseInt(summonOptions.defaultnumber) : 1;
-    let usespelltemplate = summonOptions.usespelltemplate;
+/**
+ * @href https://github.com/theripper93/FoundryVTT-Macros/blob/main/General/SummonActorFromItemMacro.js
+ */
+export const summonActorFromItemMacro = async function (
+    mysummoneritem,
+    filterforfolder:boolean,
+    folderId:string,
+    chosencreature:string,
+    numbercreature:number = 1,
+    usespelltemplate:boolean) {
 
     function spawnActor(scene, template) {
 
@@ -76,4 +79,30 @@ export const summonActorFromItemMacro = async function (mysummoneritem:any, summ
   await actor.createEmbeddedEntity("ActiveEffect", effectData);
 }
 
+/**
+ * @href https://www.reddit.com/r/FoundryVTT/comments/ml9txh/how_to_create_a_summoned_creature_with/gtqsf3i/?utm_source=share&utm_medium=web2x&context=3
+ * @usage
+ * const updateTempHp = {
+ * "data.attributes.hp.temp": Math.floor(token.actor.getRollData().classes.sorcerer.levels / 2),
+ * };
+ *
+ * const Summon = getGame().macros.getName("Summon");
+ * Summon.execute("Hound of Ill Omen", updateTempHp);
+ * Summon(actorName, token, update);
+ */
+export const summonActorSystemGeneric = async function(actorName:string, nextToToken:Token, update = {}){
+    const viewedScene = <Scene>getGame().scenes?.viewed;
+    const summonActor = <Actor>getGame().actors?.getName(actorName);
+    const summonTokenData = <TokenData>await summonActor.getTokenData();
+
+    // Place the token one square to the right of PC.
+    summonTokenData.update({
+        x: nextToToken.x + viewedScene.data.grid,
+        y: nextToToken.y
+    });
+
+    //@ts-ignore
+    const placedTokenDocs:TokenDocument[] = await viewedScene.createEmbeddedDocuments(Token.embeddedName, [summonTokenData]);
+    placedTokenDocs.forEach((t:TokenDocument) => t.actor?.update(update));
+}
 
