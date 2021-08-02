@@ -43,7 +43,7 @@ export abstract class ScalingActorSummon {
    * needs to return an array of item updates (including '_id' field)
    * Note: this can be an empty array to skip updating the actor's items
    */
-  abstract itemUpdateGenerator(castingLevel:number, summonerActor:Actor, summonedToken:TokenDocument):[];
+  abstract itemUpdateGenerator(castingLevel:number, summonerActor:Actor, summonedToken:TokenDocument):Record<string, unknown>[];
 
   /* \CONFIG */
 

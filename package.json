@@ -11,9 +11,10 @@
     "build": "gulp build && gulp link",
     "build:watch": "gulp watch",
     "clean": "gulp clean && gulp link --clean",
-    "update": "npm install --save-dev @league-of-foundry-developers/foundry-vtt-types@fvtt-0.8.8"
+    "update": "npm install --save-dev @league-of-foundry-developers/foundry-vtt-types@fvtt-0.8.8 && npm install --save-dev @league-of-foundry-developers/foundry-vtt-dnd5e-types@dnd5e-1.3.6"
   },
   "devDependencies": {
+    "@league-of-foundry-developers/foundry-vtt-dnd5e-types": "^1.3.6-2",
     "@league-of-foundry-developers/foundry-vtt-types": "^0.8.8-7",
     "archiver": "^5.2.0",
     "chalk": "^4.1.0",

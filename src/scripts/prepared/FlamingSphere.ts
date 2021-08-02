@@ -1,39 +1,52 @@
 import { ScalingActorSummon } from "../ScalingActorSummon";
+import { SUMMONER_ITEM_MACRO_MODULE_NAME } from "../settings";
 
+/**
+ * @href https://github.com/trioderegion/fvtt-macros/blob/master/honeybadger-macros/tokens/dnd5e/ScalingActorSummon_Examples/FlamingSphere.js
+ */
 export class FlamingSphere extends ScalingActorSummon{
 
-  /* CONFIG */
-  module = MODULE.ITEM_MACRO
-  summonItem = item; //'item' defined by Item Macro
-  actorNameToSpawn = summonItem.name;
-  summonerActor = summonItem.parent;
-  summonerDc = summonerActor.data.data.attributes.spelldc;
-  const summonerSpellAttackMod = summonerDc - 8;
+
+  module = SUMMONER_ITEM_MACRO_MODULE_NAME;
+  // summonItem = summonerItem:any; //item; //'item' defined by Item Macro
+  actorNameToSpawn = this.summonerItem.name;
+  summonerActor = this.summonerItem.parent;
+  summonerDc = this.summonerActor.data.data.attributes.spelldc;
+  summonerSpellAttackMod = this.summonerDc - 8;
 
   /** needs to return a plain update object for this specific summoned token
       Note: this can be an empty object to skip updating the token */
-  function tokenUpdateGenerator(castingLevel, summonerActor, summonedToken){
+  tokenUpdateGenerator(castingLevel, summonerActor, summonedToken){
       return {
         //token update data
       }
   }
   /** needs to return a plain update object for this specific summoned actor */
-  function actorUpdateGenerator(castingLevel, summonerActor, summonedToken){
+  actorUpdateGenerator(castingLevel, summonerActor, summonedToken){
       return {
-          "name" : `${summonerActor.name}'s ${actorNameToSpawn}`,
+          "name" : `${summonerActor.name}'s ${this.actorNameToSpawn}`,
           "data.attributes.ac.value": castingLevel
       };
   }
 
   /** needs to return an array of item updates (including '_id' field) */
-  function itemUpdateGenerator(castingLevel, summonerActor, summonedToken){
+  itemUpdateGenerator(castingLevel, summonerActor, summonedToken):Record<string, unknown>[]{
       const scalingItem = summonedToken.actor.items.getName("Flame Burst");
       return [{
           "_id" : scalingItem.id,
-          "data.damage.parts": [[`${castingLevel}d6`,"fire"]],
-          "data.save": {ability:"dex", dc:summonerDc, scaling:"flat"}
-      }]
+          "data.damage.parts": [
+            [
+              `${castingLevel}d6`,
+              "fire"
+            ]
+          ],
+          "data.save": {
+            ability:"dex",
+            dc:this.summonerDc,
+            scaling:"flat"
+          }
+      }];
   }
-  /* \CONFIG */
+
 
 }
