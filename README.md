@@ -1,5 +1,7 @@
 # foundryvtt-summoner
 
+## THIS PROJECT IS ABBANDONED IN FAVOR OF [Automated Evocations](https://github.com/theripper93/automated-evocations)
+
 A module to help with summoning tokens in the Foundry Virtual Tabletop.  It allows players to place and remove select tokens that they control through scripts.  These can be attached to macros to make it easy for players to summon and dismiss their minions.
 
 Additionally, the token data can be overridden on a case-by-case basis to provide customization based on the summoning conditions.
@@ -164,3 +166,7 @@ Summoner.placeAndSummon(
 * The module works by sending a message to the GM through a socket and having the GM create or delete the token.
 * There are lots of creative ways to organize things using just actor configuration. It may mean you have to set up a lot of actors, such as multiple instances of the same type for different players, but at least it works! 
 * A feature that may help with having tokens for unowned actors is the option to polymorph the token.  For example, there could be a "Bag of Tricks" actor that the player owns, but when the token is summoned it gets polymorphed to the animal that is pulled from the bag.
+
+# License
+
+This package is under an [MIT license](LICENSE) and the [Foundry Virtual Tabletop Limited License Agreement for module development](https://foundryvtt.com/article/license/).
